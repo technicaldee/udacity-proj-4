@@ -1,52 +1,27 @@
 import 'source-map-support/register'
+import {APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult} from 'aws-lambda'
+import {UpdateTodoRequest} from '../../requests/UpdateTodoRequest'
+import {updateToDo} from "../../businessLogic/ToDo";
 
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
-import * as middy from 'middy'
-import { cors, httpErrorHandler } from 'middy/middlewares'
+export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    // TODO: Update a TODO item with the provided id using values in the "updatedTodo" object
+    console.log("Processing Event ", event);
+    const authorization = event.headers.Authorization;
+    const split = authorization.split(' ');
+    const jwtToken = split[1];
 
-import { updateTodo, getTodo } from '../../businessLogic/todos'
-import { UpdateTodoRequest } from '../../requests/UpdateTodoRequest'
-import { getUserId, parseUserId } from '../utils'
+    const todoId = event.pathParameters.todoId;
+    const updatedTodo: UpdateTodoRequest = JSON.parse(event.body);
 
-export const handler = middy(
-  async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const todoId = event.pathParameters.todoId
-    const updatedTodo: UpdateTodoRequest = JSON.parse(event.body)
-    // TOD0: Update a TODO item with the provided id using values in the "updatedTodo" object
-  
-    const authorization = event.headers.Authorization
-    const split = authorization.split(' ')
-    const jwtToken = split[1]
-  
-    const userId = parseUserId(jwtToken)
-  
-    const todo = await getTodo(todoId)
-  
-    if (todo && todo.userId === userId) {
-      const result = await updateTodo(todo, updatedTodo)
-  
-      return {
+    const toDoItem = await updateToDo(updatedTodo, todoId, jwtToken);
+
+    return {
         statusCode: 200,
         headers: {
-          'Access-Control-Allow-Origin': '*'
+            "Access-Control-Allow-Origin": "*",
         },
-        body: JSON.stringify(result)
-      }
+        body: JSON.stringify({
+            "item": toDoItem
+        }),
     }
-  
-    return {
-      statusCode: 404,
-      headers: {
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: 'Failed to update. Item not found or user do not own item.'
-    }
-  })
-
-handler
-  .use(httpErrorHandler())
-  .use(
-    cors({
-      credentials: true
-    })
-  )
+};
